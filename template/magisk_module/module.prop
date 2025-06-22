@@ -1,6 +1,6 @@
-id=zygisk_il2cppdumper
-name=Zygisk Il2CppDumper
-version=v1.0
-versionCode=1
-author=Perfare
-description=Il2CppDumper for com.your.target.package
+id=${id}
+name=${name}
+version=${version}
+versionCode=${versionCode}
+author=${author}
+description=${description}
