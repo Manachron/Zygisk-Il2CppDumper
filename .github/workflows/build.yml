@@ -14,7 +14,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: 'recursive'
-        fetch-depth: 0
 
     - name: Setup Java
       uses: actions/setup-java@v4
@@ -27,34 +26,45 @@ jobs:
       uses: nttld/setup-ndk@v1
       with:
         ndk-version: r25c
-        add-to-path: false
 
     - name: Build module
       run: |
         chmod +x ./gradlew
         echo "Building for package: ${{ github.event.inputs.package_name }}"
         
+        # Debug: Show file structure
+        echo "=== File structure ==="
+        find . -name "game.h" -type f
+        find . -name "*.h" -path "*/cpp/*" -type f
+        
+        # Check original content
+        echo "=== Original game.h content ==="
+        find . -name "game.h" -exec cat {} \;
+        
         # Update module description
         sed -i 's/moduleDescription = "/moduleDescription = "(${{ github.event.inputs.package_name }}) /g' module.gradle
         
-        # Update package name in C++ header
-        sed -i "s/com\.game\.packagename/${{ github.event.inputs.package_name }}/g" module/src/main/cpp/game.h
+        # Try multiple possible locations and patterns for game.h
+        find . -name "game.h" -exec sed -i "s/com\.game\.packagename/${{ github.event.inputs.package_name }}/g" {} \;
+        find . -name "game.h" -exec sed -i "s/com\.example\.package/${{ github.event.inputs.package_name }}/g" {} \;
+        find . -name "game.h" -exec sed -i "s/GAME_PACKAGE_NAME \".*\"/GAME_PACKAGE_NAME \"${{ github.event.inputs.package_name }}\"/g" {} \;
         
-        # Verify changes
-        echo "=== Module gradle ===" 
+        # Verify the change worked
+        echo "=== Updated game.h content ==="
+        find . -name "game.h" -exec cat {} \;
+        
+        echo "=== Module gradle ==="
         grep "moduleDescription" module.gradle || echo "moduleDescription not found"
-        echo "=== Game header ==="
-        grep "GAME_PACKAGE_NAME" module/src/main/cpp/game.h || echo "GAME_PACKAGE_NAME not found"
+        
+        echo "=== Game header search ==="
+        find . -name "game.h" -exec grep -H "GAME_PACKAGE_NAME\|package" {} \; || echo "No package references found"
         
         # Build the module
         ./gradlew :module:assembleRelease
 
-    - name: Upload build artifact
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: zygisk-il2cppdumper-${{ github.event.inputs.package_name }}
-        path: |
-          out/magisk_module_release/
-          module/build/outputs/
-        compression-level: 6
+        path: out/magisk_module_release/
         if-no-files-found: error
